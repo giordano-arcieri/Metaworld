@@ -15,7 +15,7 @@ from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 
 # === CONFIGURATION ===
-TOTAL_TIMESTEPS = 1_000_000
+TOTAL_TIMESTEPS = 500_000
 ENV_NAME = 'custom-two-balls'  # Name of the environment to use
 
 # --- Wrapper for Metaworld Environments ---

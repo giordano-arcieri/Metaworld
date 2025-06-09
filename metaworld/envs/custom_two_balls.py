@@ -313,7 +313,7 @@ class CustomTwoBalls(SawyerXYZEnv):
                 sigmoid="long_tail",
             )
 
-            grasp_reward = self._gripper_caging_reward(action, obj) * 5
+            grasp_reward = self._get_caging_reward(obj) * 5
 
             reward = reach_reward + grasp_reward
 
@@ -460,7 +460,7 @@ class CustomTwoBalls(SawyerXYZEnv):
         )
 
         return is_grasped
-    
+
     @SawyerXYZEnv._Decorators.assert_task_is_set
     def step(
         self, action: npt.NDArray[np.float32]
@@ -482,3 +482,30 @@ class CustomTwoBalls(SawyerXYZEnv):
             truncated,
             info,
         )
+
+    def _get_caging_reward(self, obj_pos: npt.NDArray[Any]) -> float:
+        """
+        Calculates a reward for how well the OPEN gripper is centered around the object.
+        This function does NOT reward closing the gripper, only positioning.
+        """
+        tcp = self.tcp_center
+        left_pad = self.get_body_com("leftpad")
+        right_pad = self.get_body_com("rightpad")
+        
+        # Reward for centering the object between the gripper pads (Y-axis)
+        delta_object_y_left = left_pad[1] - obj_pos[1]
+        delta_object_y_right = obj_pos[1] - right_pad[1]
+        y_caging = reward_utils.hamacher_product(
+            reward_utils.tolerance(delta_object_y_left, bounds=(0.015, 0.05), margin=0.05, sigmoid="long_tail"),
+            reward_utils.tolerance(delta_object_y_right, bounds=(0.015, 0.05), margin=0.05, sigmoid="long_tail"),
+        )
+        
+        # Reward for bringing the palm of the gripper close to the object (X and Z axes)
+        tcp_xz = tcp[[0, 2]]
+        obj_xz = obj_pos[[0, 2]]
+        tcp_obj_dist_xz = np.linalg.norm(tcp_xz - obj_xz)
+        xz_caging = reward_utils.tolerance(tcp_obj_dist_xz, bounds=(0, 0.005), margin=0.05, sigmoid="long_tail")
+        
+        # The final caging reward is a combination of Y-axis and XZ-plane alignment
+        return reward_utils.hamacher_product(y_caging, xz_caging)
+
