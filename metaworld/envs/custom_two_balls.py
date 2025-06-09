@@ -144,16 +144,12 @@ class CustomTwoBalls(SawyerXYZEnv):
         return self.data.geom(f"{self.target_variant}Geom").id
 
     def _get_pos_objects(self) -> npt.NDArray[Any]:
-        return self.get_body_com(f"ball_red")
         return np.hstack((
             self.get_body_com(f"ball_red"),
             self.get_body_com(f"ball_green"),
         ))
 
     def _get_quat_objects(self) -> npt.NDArray[Any]:
-        return Rotation.from_matrix(
-            self.data.geom("redGeom").xmat.reshape(3, 3)
-        ).as_quat()
         return np.hstack((
             Rotation.from_matrix(
                 self.data.geom("redGeom").xmat.reshape(3, 3)
@@ -315,44 +311,32 @@ class CustomTwoBalls(SawyerXYZEnv):
     ) -> tuple[float, float, float, float, float, float]:
         assert self._target_pos is not None and self.red_ball_init_pos is not None
         if True:
-            _TARGET_RADIUS: float = 0.05
             tcp = self.tcp_center
             obj = obs[4:7]
             tcp_opened = obs[3]
-            target = self._target_pos
 
-            obj_to_target = float(np.linalg.norm(obj - target))
             tcp_to_obj = float(np.linalg.norm(obj - tcp))
-            in_place_margin = np.linalg.norm(self.red_ball_init_pos - target)
-
-            in_place = reward_utils.tolerance(
-                obj_to_target,
-                bounds=(0, _TARGET_RADIUS),
-                margin=in_place_margin,
+            # The `reach_margin` should be the typical distance from the gripper
+            # to the object at the start of an episode.
+            reach_margin = np.linalg.norm(self.hand_init_pos - self.red_ball_init_pos)
+            reach_reward = reward_utils.tolerance(
+                tcp_to_obj,
+                bounds=(0, 0.02), # Target distance is 0, with a tolerance of 0.02
+                margin=reach_margin,
                 sigmoid="long_tail",
             )
 
             object_grasped = self._gripper_caging_reward(action, obj)
-            in_place_and_object_grasped = reward_utils.hamacher_product(
-                object_grasped, in_place
-            )
-            reward = in_place_and_object_grasped
 
-            if (
-                tcp_to_obj < 0.02
-                and (tcp_opened > 0)
-                and (obj[2] - 0.01 > self.red_ball_init_pos[2])
-            ):
-                reward += 1.0 + 5.0 * in_place
-            if obj_to_target < _TARGET_RADIUS:
-                reward = 10.0
+            reward = reach_reward + 5 * object_grasped
+
             return (
                 reward,
                 tcp_to_obj,
                 tcp_opened,
-                obj_to_target,
+                -1,
                 object_grasped,
-                in_place,
+                -1,
             )
         else:
             objPos = obs[4:7]

@@ -5,8 +5,8 @@ import metaworld
 from stable_baselines3 import PPO
 
 # === Configuration ===
-MODEL_PATH = "ppo_pick_place_model.zip"
-ENV_NAME = "pick-place-v3"
+MODEL_PATH = "ppo_model/two_balls/models/ppo_final_11.zip"
+ENV_NAME = "custom-two-balls"  # Name of the environment to evaluate
 NUM_EPISODES = 10
 
 # === WRAPPER (Required for correct environment setup) ===
@@ -81,6 +81,8 @@ def main():
             # End the episode if truncated
             if terminated or truncated:
                 break
+            
+            print("Reward:", reward)
 
         print(f"Episode {episode + 1}: Total Reward = {total_reward:.2f}, Success = {info.get('success', 0.0)}")
 
