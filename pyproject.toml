@@ -28,7 +28,9 @@ dependencies = [
     "mujoco>=3.0.0",
     "numpy>=1.18",
     "scipy>=1.4.1",
-    "imageio"
+    "imageio",
+    "wandb>=0.20.1",
+    "stable-baselines3[extra]>=2.6.0",
 ]
 
 [project.optional-dependencies]
