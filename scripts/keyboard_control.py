@@ -69,13 +69,14 @@ while True:
                 elif new_action is not None and isinstance(new_action, np.ndarray):
                     action[:3] = new_action[:3]
                 else:
-                    action = np.zeros(3, dtype=np.float32)
+                    action = np.zeros(4, dtype=np.float32)
                 print(action)
     else:
         action = np.array(env.action_space.sample(), dtype=np.float32)
-    ob, reward, done, infos, _ = env.step(action)
-    time.sleep(0.1)  # Adjust the sleep time as needed for smoother rendering
+    ob, reward, _, turnicate, infos = env.step(action)
+    time.sleep(0.2)  # Adjust the sleep time as needed for smoother rendering
     print("OBSERVATION:", ob)
+    print("INFO:", infos)
     print("REWARD:", reward)
     # time.sleep(1)
     if done:
