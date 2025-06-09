@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, SupportsFloat
 
 import numpy as np
 import numpy.typing as npt
@@ -71,7 +71,7 @@ class CustomTwoBalls(SawyerXYZEnv):
 
     @property
     def model_name(self) -> str:
-        return full_V3_path_for("sawyer_xyz/sawyer_pick_place_v3.xml")
+        return full_V3_path_for("sawyer_xyz/custom_two_balls.xml")
 
     @SawyerXYZEnv._Decorators.assert_task_is_set
     def evaluate_state(
@@ -108,26 +108,26 @@ class CustomTwoBalls(SawyerXYZEnv):
         return reward, info
 
     def _get_id_main_object(self) -> int:
-        return self.data.geom("objGeom").id
+        return self.data.geom("redGeom").id
 
     def _get_pos_objects(self) -> npt.NDArray[Any]:
-        return self.get_body_com("obj")
+        return self.get_body_com("ball_red")
 
     def _get_quat_objects(self) -> npt.NDArray[Any]:
         return Rotation.from_matrix(
-            self.data.geom("objGeom").xmat.reshape(3, 3)
+            self.data.geom("redGeom").xmat.reshape(3, 3)
         ).as_quat()
 
     def fix_extreme_obj_pos(self, orig_init_pos: npt.NDArray[Any]) -> npt.NDArray[Any]:
         # This is to account for meshes for the geom and object are not
         # aligned. If this is not done, the object could be initialized in an
         # extreme position
-        diff = self.get_body_com("obj")[:2] - self.get_body_com("obj")[:2]
+        diff = self.get_body_com("ball_red")[:2] - self.get_body_com("ball_red")[:2]
         adjusted_pos = orig_init_pos[:2] + diff
         # The convention we follow is that body_com[2] is always 0,
         # and geom_pos[2] is the object height
         return np.array(
-            [adjusted_pos[0], adjusted_pos[1], self.get_body_com("obj")[-1]]
+            [adjusted_pos[0], adjusted_pos[1], self.get_body_com("ball_red")[-1]]
         )
 
     def reset_model(self) -> npt.NDArray[np.float64]:
@@ -148,9 +148,9 @@ class CustomTwoBalls(SawyerXYZEnv):
         self.init_right_pad = self.get_body_com("rightpad")
 
         self._set_obj_xyz(self.obj_init_pos)
-        self.model.site("goal").pos = self._target_pos
+        # self.model.site("goal").pos = self._target_pos
 
-        self.objHeight = self.data.geom("objGeom").xpos[2]
+        self.objHeight = self.data.geom("redGeom").xpos[2]
         self.heightTarget = self.objHeight + 0.04
 
         self.maxPlacingDist = (
@@ -297,7 +297,7 @@ class CustomTwoBalls(SawyerXYZEnv):
 
             reachDist = np.linalg.norm(objPos - fingerCOM)
             placingDist = np.linalg.norm(objPos - goal)
-            assert np.all(goal == self._get_site_pos("goal"))
+            # assert np.all(goal == self._get_site_pos("goal"))
 
             reachRew = -reachDist
             reachDistxy = np.linalg.norm(objPos[:-1] - fingerCOM[:-1])
@@ -355,3 +355,7 @@ class CustomTwoBalls(SawyerXYZEnv):
             reward = reachRew + pickRew + placeRew
 
             return float(reward), 0.0, 0.0, float(placingDist), 0.0, 0.0
+
+    @property
+    def _target_site_config(self) -> list[tuple[str, npt.NDArray[Any]]]:
+        return []

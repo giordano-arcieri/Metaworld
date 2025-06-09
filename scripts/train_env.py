@@ -16,7 +16,7 @@ from stable_baselines3.common.monitor import Monitor
 
 # === CONFIGURATION ===
 TOTAL_TIMESTEPS = 1_000_000
-ENV_NAME = 'pick-place-v3'
+ENV_NAME = 'custom-two-balls'  # Name of the environment to use
 
 # --- Wrapper for Metaworld Environments ---
 # This wrapper is essential for training, as it handles setting a new random
