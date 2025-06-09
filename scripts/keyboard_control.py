@@ -41,7 +41,6 @@ env._partially_observable = False
 env._freeze_rand_vec = False
 env._set_task_called = True
 env.reset()
-env._freeze_rand_vec = True
 lock_action = False
 random_action = False
 obs = env.reset()
