@@ -321,7 +321,6 @@ class CustomTwoBalls(SawyerXYZEnv):
             if grasp_success:
                 reward = 10
 
-            print(f"Grasp success: {grasp_success}")
             return (
                 reward,
                 grasp_reward,
@@ -461,3 +460,25 @@ class CustomTwoBalls(SawyerXYZEnv):
         )
 
         return is_grasped
+    
+    @SawyerXYZEnv._Decorators.assert_task_is_set
+    def step(
+        self, action: npt.NDArray[np.float32]
+    ) -> tuple[npt.NDArray[np.float64], SupportsFloat, bool, bool, dict[str, Any]]:
+        """Step the environment.
+
+        Args:
+            action: The action to take. Must be a 4 element array of floats.
+
+        Returns:
+            The (next_obs, reward, done, truncated, info) tuple.
+        """
+        obs, reward, done, truncated, info = super().step(action)
+        done = info["success"]
+        return (
+            obs,
+            reward,
+            done,
+            truncated,
+            info,
+        )

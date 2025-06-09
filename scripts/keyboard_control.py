@@ -73,10 +73,11 @@ while True:
                 print(action)
     else:
         action = np.array(env.action_space.sample(), dtype=np.float32)
-    ob, reward, _, turnicate, infos = env.step(action)
+    ob, reward, done, turnicate, infos = env.step(action)
     time.sleep(0.2)  # Adjust the sleep time as needed for smoother rendering
     print("OBSERVATION:", ob)
     print("INFO:", infos)
+    print("DONE:", done, "  |  TRUNCATED:", turnicate)
     print("REWARD:", reward)
     # time.sleep(1)
     if done:
