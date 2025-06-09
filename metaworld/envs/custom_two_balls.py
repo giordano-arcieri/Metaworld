@@ -56,7 +56,7 @@ class CustomTwoBalls(SawyerXYZEnv):
         green_ball_low = (-0.4, 0.5, 0.02)
         green_ball_high = (0.4, 0.8, 0.02)
 
-        # Initialize the base SawyerXYZEnv: 
+        # Initialize the base SawyerXYZEnv:
         # - hand_low/hand_high define the reachable workspace
         # - render_mode, camera_name/id configure the viewer if needed
         super().__init__(
@@ -110,20 +110,19 @@ class CustomTwoBalls(SawyerXYZEnv):
         (
             reward,
             grasp_reward,
-            tcp_to_obj,
             grasp_success,
+            tcp_to_obj,
             tcp_open,
         ) = self.compute_reward(action, obs)
 
         assert self.red_ball_init_pos is not None and self.green_ball_init_pos is not None
 
-
         info = {
             "success": grasp_success,
-            "tcp_to_obj": tcp_to_obj,
-            "tcp_open": tcp_open,
             "grasp_reward": grasp_reward,
             "unscaled_reward": reward,
+            "tcp_to_obj": tcp_to_obj,
+            "tcp_open": tcp_open,
         }
 
         return reward, info
@@ -314,18 +313,22 @@ class CustomTwoBalls(SawyerXYZEnv):
                 sigmoid="long_tail",
             )
 
-            object_grasped = self._gripper_caging_reward(action, obj)
+            grasp_reward = self._gripper_caging_reward(action, obj) * 5
 
-            reward = reach_reward + 5 * object_grasped
+            reward = reach_reward + grasp_reward
 
             grasp_success = self._is_grasped(obj)
+            if grasp_success:
+                reward = 10
+
             print(f"Grasp success: {grasp_success}")
             return (
                 reward,
+                grasp_reward,
+                grasp_success,
                 tcp_to_obj,
                 tcp_opened,
-                grasp_success,
-                object_grasped,
+
             )
         else:
             objPos = obs[4:7]
