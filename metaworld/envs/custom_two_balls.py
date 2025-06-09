@@ -109,30 +109,19 @@ class CustomTwoBalls(SawyerXYZEnv):
         obj = obs[4:7]
         (
             reward,
-            tcp_to_obj,
-            tcp_open,
             grasp_reward,
-            obj_is_grasped,
+            tcp_to_obj,
+            grasp_success,
+            tcp_open,
         ) = self.compute_reward(action, obs)
-
-        success = float(obj_is_grasped)
-        near_object = float(tcp_to_obj <= 0.03)
 
         assert self.red_ball_init_pos is not None and self.green_ball_init_pos is not None
 
-        grasp_success = float(
-            self.touching_main_object
-            and (tcp_open > 0)
-            and (obj[2] - 0.02 > self.red_ball_init_pos[2])
-        )
 
         info = {
-            "success": success,
-            "object_is_grasped": obj_is_grasped,
+            "success": grasp_success,
             "tcp_to_obj": tcp_to_obj,
             "tcp_open": tcp_open,
-            "near_object": near_object,
-            "grasp_success": grasp_success,
             "grasp_reward": grasp_reward,
             "unscaled_reward": reward,
         }
@@ -329,11 +318,13 @@ class CustomTwoBalls(SawyerXYZEnv):
 
             reward = reach_reward + 5 * object_grasped
 
+            grasp_success = self._is_grasped(obj)
+            print(f"Grasp success: {grasp_success}")
             return (
                 reward,
                 tcp_to_obj,
                 tcp_opened,
-                object_grasped,
+                grasp_success,
                 object_grasped,
             )
         else:
@@ -432,3 +423,38 @@ class CustomTwoBalls(SawyerXYZEnv):
             raise ValueError(f"_set_obj_xyz() expects pos.shape (6,), got {pos.shape}")
 
         self.set_state(qpos, qvel)
+
+    def _is_grasped(self, obj_pos: npt.NDArray[np.float64]) -> bool:
+        """
+        Check if the object has been grasped by the gripper.
+
+        Args:
+            obj_pos: The position of the object (x, y, z).
+
+        Returns:
+            True if the object is grasped, False otherwise.
+        """
+        # Get the positions of the gripper pads
+        left_pad = self.get_body_com("leftpad")
+        right_pad = self.get_body_com("rightpad")
+
+        # Compute the distance between the gripper pads and the object
+        left_to_obj = np.linalg.norm(left_pad - obj_pos)
+        right_to_obj = np.linalg.norm(right_pad - obj_pos)
+
+        # Compute the distance between the gripper pads (gripper width)
+        gripper_width = np.linalg.norm(left_pad - right_pad)
+
+        # Check height difference between gripper and object
+        gripper_height = (left_pad[2] + right_pad[2]) / 2  # Average height of gripper pads
+        height_diff = abs(gripper_height - obj_pos[2])
+
+        # Check if the object is between the gripper pads and the gripper is closed
+        is_grasped = (
+            left_to_obj < 0.065 and  # Left pad is close to the object
+            right_to_obj < 0.065 and  # Right pad is close to the object
+            gripper_width < 0.04 and gripper_width > 0.03  # Gripper is closed
+            # height_diff < 0.04  # Gripper is at the same height as the object
+        )
+
+        return is_grasped
