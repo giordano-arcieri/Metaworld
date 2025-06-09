@@ -74,6 +74,7 @@ ENV_CLS_MAP = {
     "sweep-v3": envs.SawyerSweepEnvV3,
     "window-open-v3": envs.SawyerWindowOpenEnvV3,
     "window-close-v3": envs.SawyerWindowCloseEnvV3,
+    "custom-two-balls": envs.CustomTwoBalls,
 }
 
 
@@ -266,6 +267,7 @@ ALL_V3_ENVIRONMENTS = _get_env_dict(
         "sweep-v3",
         "window-open-v3",
         "window-close-v3",
+        "custom-two-balls",
     ]
 )
 
