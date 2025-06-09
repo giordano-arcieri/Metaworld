@@ -5,7 +5,7 @@ import metaworld
 from stable_baselines3 import PPO
 
 # === Configuration ===
-MODEL_PATH = "ppo_model/two_balls/models/ppo_model10.zip"
+MODEL_PATH = "ppo_model/two_balls/models/G50_model10.zip"
 ENV_NAME = "custom-two-balls"  # Name of the environment to evaluate
 NUM_EPISODES = 10
 

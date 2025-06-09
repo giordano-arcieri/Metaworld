@@ -319,7 +319,7 @@ class CustomTwoBalls(SawyerXYZEnv):
 
             grasp_success = self._is_grasped(obj)
             if grasp_success:
-                reward = 10
+                reward = 50
 
             return (
                 reward,

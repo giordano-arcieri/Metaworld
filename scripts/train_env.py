@@ -128,7 +128,7 @@ def main():
         ])
 
         model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks)
-        model.save(os.path.join(MODEL_DIR, "ppo_model" + str(i)))
+        model.save(os.path.join(MODEL_DIR, "G50_model" + str(i)))
 
         print("✅ Training complete.")
         wandb.finish()
