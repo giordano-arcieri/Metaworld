@@ -56,7 +56,7 @@ def main():
     for episode in range(NUM_EPISODES):
         print(f"--- Episode {episode + 1} ---")
         obs, _ = env.reset()
-
+        
         for step in range(STEPS_PER_EPISODE):
             # Render the current frame
             env.render()
@@ -69,6 +69,8 @@ def main():
 
             if terminated or truncated:
                 break
+            
+            print("OBS:", obs)
 
     # --- Clean up ---
     env.close()

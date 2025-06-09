@@ -12,6 +12,13 @@ from metaworld.sawyer_xyz_env import RenderMode, SawyerXYZEnv
 from metaworld.types import InitConfigDict
 from metaworld.utils import reward_utils
 
+COLOR_MAP = {
+    'red': np.array([1, 0], dtype=np.float32),
+    'green': np.array([0, 1], dtype=np.float32),
+}
+
+BUTTON_VARIANTS = ['red', 'green']
+
 
 class CustomTwoBalls(SawyerXYZEnv):
     """CustomTwoBalls.
@@ -29,15 +36,29 @@ class CustomTwoBalls(SawyerXYZEnv):
         render_mode: RenderMode | None = None,
         camera_name: str | None = None,
         camera_id: int | None = None,
-        reward_function_version: str = "v2",
     ) -> None:
-        goal_low = (-0.1, 0.8, 0.05)
-        goal_high = (0.1, 0.9, 0.3)
+        # Set the color of the target button randomly
+        self.target_variant = 'red'  # random.choice(BUTTON_VARIANTS)
+        self.color_vec = COLOR_MAP[self.target_variant]
+
+        # Bounds for the robot hand workspace.
+        # Actions outside this box are clipped by the environment.
         hand_low = (-0.5, 0.40, 0.05)
         hand_high = (0.5, 1, 0.5)
-        obj_low = (-0.1, 0.6, 0.02)
-        obj_high = (0.1, 0.7, 0.02)
 
+        # Bounds for initial object placement.
+        # Both balls will be reset randomly within this region.
+        red_ball_low = (-0.4, 0.5, 0.02)
+        red_ball_high = (0.4, 0.8, 0.02)
+
+        # Bounds for initial object placement.
+        # Both balls will be reset randomly within this region.
+        green_ball_low = (-0.4, 0.5, 0.02)
+        green_ball_high = (0.4, 0.8, 0.02)
+
+        # Initialize the base SawyerXYZEnv: 
+        # - hand_low/hand_high define the reachable workspace
+        # - render_mode, camera_name/id configure the viewer if needed
         super().__init__(
             hand_low=hand_low,
             hand_high=hand_high,
@@ -45,29 +66,37 @@ class CustomTwoBalls(SawyerXYZEnv):
             camera_name=camera_name,
             camera_id=camera_id,
         )
-        self.reward_function_version = reward_function_version
 
+        # Default starting configuration for the first ball and the robot hand
         self.init_config: InitConfigDict = {
-            "obj_init_angle": 0.3,
-            "obj_init_pos": np.array([0, 0.6, 0.02]),
+            "red_ball_init_angle": 0.3,
+            "red_ball_init_pos": np.array([-0.6, 0.6, 0.02]),
+            "green_ball_init_angle": 0.3,
+            "green_ball_init_pos": np.array([0.6, 0.6, 0.02]),
             "hand_init_pos": np.array([0, 0.6, 0.2]),
         }
 
-        self.goal = np.array([0.1, 0.8, 0.2])
 
-        self.obj_init_angle = self.init_config["obj_init_angle"]
-        self.obj_init_pos = self.init_config["obj_init_pos"]
+        # Unpack and store the init_config values into attributes for reset_model()
+        self.red_ball_init_angle = self.init_config["red_ball_init_angle"]
+        self.red_ball_init_pos = self.init_config["red_ball_init_pos"]
+        self.green_ball_init_angle = self.init_config["green_ball_init_angle"]
+        self.green_ball_init_pos = self.init_config["green_ball_init_pos"]
         self.hand_init_pos = self.init_config["hand_init_pos"]
 
+        # Define a 6‑D Box space: [obj1_xyz, obj2_xyz]
         self._random_reset_space = Box(
-            np.hstack((obj_low, goal_low)),
-            np.hstack((obj_high, goal_high)),
+            np.hstack((red_ball_low, green_ball_low)),
+            np.hstack((red_ball_high, green_ball_high)),
             dtype=np.float64,
         )
-        self.goal_space = Box(np.array(goal_low), np.array(goal_high), dtype=np.float64)
 
+        # Counter tracking how many times reset_model() has been called
         self.num_resets = 0
-        self.obj_init_pos = None
+
+        # Clear obj_init_pos so that the first reset uses a random position
+        self.red_ball_init_pos = None
+        self.green_ball_init_pos = None
 
     @property
     def model_name(self) -> str:
@@ -87,14 +116,18 @@ class CustomTwoBalls(SawyerXYZEnv):
             grasp_reward,
             in_place_reward,
         ) = self.compute_reward(action, obs)
+
         success = float(obj_to_target <= 0.07)
         near_object = float(tcp_to_obj <= 0.03)
-        assert self.obj_init_pos is not None
+
+        assert self.red_ball_init_pos is not None and self.green_ball_init_pos is not None
+
         grasp_success = float(
             self.touching_main_object
             and (tcp_open > 0)
-            and (obj[2] - 0.02 > self.obj_init_pos[2])
+            and (obj[2] - 0.02 > self.red_ball_init_pos[2])
         )
+
         info = {
             "success": success,
             "near_object": near_object,
@@ -108,17 +141,36 @@ class CustomTwoBalls(SawyerXYZEnv):
         return reward, info
 
     def _get_id_main_object(self) -> int:
-        return self.data.geom("redGeom").id
+        return self.data.geom(f"{self.target_variant}Geom").id
 
     def _get_pos_objects(self) -> npt.NDArray[Any]:
-        return self.get_body_com("ball_red")
+        return self.get_body_com(f"ball_red")
+        return np.hstack((
+            self.get_body_com(f"ball_red"),
+            self.get_body_com(f"ball_green"),
+        ))
 
     def _get_quat_objects(self) -> npt.NDArray[Any]:
         return Rotation.from_matrix(
             self.data.geom("redGeom").xmat.reshape(3, 3)
         ).as_quat()
+        return np.hstack((
+            Rotation.from_matrix(
+                self.data.geom("redGeom").xmat.reshape(3, 3)
+            ).as_quat(),
+            Rotation.from_matrix(
+                self.data.geom("greenGeom").xmat.reshape(3, 3)
+            ).as_quat(),
+        ))
 
-    def fix_extreme_obj_pos(self, orig_init_pos: npt.NDArray[Any]) -> npt.NDArray[Any]:
+    def _get_color_objects(self) -> npt.NDArray[Any]:
+        # Returns the color of the balls (red and green)
+        return np.hstack((
+            COLOR_MAP["red"],
+            COLOR_MAP["green"],
+        ))
+
+    def fix_extreme_red_ball_pos(self, orig_init_pos: npt.NDArray[Any]) -> npt.NDArray[Any]:
         # This is to account for meshes for the geom and object are not
         # aligned. If this is not done, the object could be initialized in an
         # extreme position
@@ -130,33 +182,52 @@ class CustomTwoBalls(SawyerXYZEnv):
             [adjusted_pos[0], adjusted_pos[1], self.get_body_com("ball_red")[-1]]
         )
 
-    def reset_model(self) -> npt.NDArray[np.float64]:
-        self._reset_hand()
-        self._target_pos = self.goal.copy()
-        self.obj_init_pos = self.fix_extreme_obj_pos(self.init_config["obj_init_pos"])
-        self.obj_init_angle = self.init_config["obj_init_angle"]
+    def fix_extreme_green_ball_pos(self, orig_init_pos: npt.NDArray[Any]) -> npt.NDArray[Any]:
+        diff = self.get_body_com("ball_green")[:2] - self.get_body_com("ball_green")[:2]
+        adjusted_pos = orig_init_pos[:2] + diff
+        return np.array(
+            [adjusted_pos[0], adjusted_pos[1], self.get_body_com("ball_green")[-1]]
+        )
 
-        goal_pos = self._get_state_rand_vec()
-        self._target_pos = goal_pos[3:]
-        while np.linalg.norm(goal_pos[:2] - self._target_pos[:2]) < 0.15:
-            goal_pos = self._get_state_rand_vec()
-            self._target_pos = goal_pos[3:]
-        self._target_pos = goal_pos[-3:]
-        self.obj_init_pos = goal_pos[:3]
+    def reset_model(self) -> npt.NDArray[np.float64]:
+        # 1) Randomize ball positions within obj_low/obj_high
+        # 2) Reset the robot hand to its home position
+        self._reset_hand()
+
+        # Set the color of the target button randomly
+        self.target_variant = 'red'  # random.choice(BUTTON_VARIANTS)
+        self.color_vec = COLOR_MAP[self.target_variant]
+
+        # Fix the extreme positions of the balls
+        self.red_ball_init_pos = self.fix_extreme_red_ball_pos(self.init_config["red_ball_init_pos"])
+        self.red_ball_init_angle = self.init_config["red_ball_init_angle"]
+        self.green_ball_init_pos = self.fix_extreme_green_ball_pos(self.init_config["green_ball_init_pos"])
+        self.green_ball_init_angle = self.init_config["green_ball_init_angle"]
+
+        # Get random state vector for the environment
+        rand_vec = self._get_state_rand_vec()
+        # print("Random state vector:", rand_vec)
+
+        # Set the random positions
+        self._target_pos  = rand_vec[0:3]
+        self.red_ball_init_pos = rand_vec[0:3]
+        self.green_ball_init_pos = rand_vec[3:6]
+
+        # Initialize TCP and pad positions
         self.init_tcp = self.tcp_center
         self.init_left_pad = self.get_body_com("leftpad")
         self.init_right_pad = self.get_body_com("rightpad")
 
-        self._set_obj_xyz(self.obj_init_pos)
-        # self.model.site("goal").pos = self._target_pos
+        self._set_obj_xyz(np.concatenate((self.red_ball_init_pos, self.green_ball_init_pos)))
 
+        ### FIX LATER
         self.objHeight = self.data.geom("redGeom").xpos[2]
         self.heightTarget = self.objHeight + 0.04
 
         self.maxPlacingDist = (
             np.linalg.norm(
                 np.array(
-                    [self.obj_init_pos[0], self.obj_init_pos[1], self.heightTarget]
+                    [self.red_ball_init_pos[0], self.red_ball_init_pos[1], self.heightTarget]
                 )
                 - np.array(self._target_pos)
             )
@@ -164,7 +235,7 @@ class CustomTwoBalls(SawyerXYZEnv):
         )
 
         self.maxPushDist = np.linalg.norm(
-            self.obj_init_pos[:2] - np.array(self._target_pos)[:2]
+            self.red_ball_init_pos[:2] - np.array(self._target_pos)[:2]
         )
 
         return self._get_obs()
@@ -217,8 +288,8 @@ class CustomTwoBalls(SawyerXYZEnv):
         tcp_obj_norm_x_z = float(np.linalg.norm(tcp_xz - obj_position_x_z, ord=2))
 
         # used for computing the tcp to object object margin in the x_z plane
-        assert self.obj_init_pos is not None
-        init_obj_x_z = self.obj_init_pos + np.array([0.0, -self.obj_init_pos[1], 0.0])
+        assert self.red_ball_init_pos is not None
+        init_obj_x_z = self.red_ball_init_pos + np.array([0.0, -self.red_ball_init_pos[1], 0.0])
         init_tcp_x_z = self.init_tcp + np.array([0.0, -self.init_tcp[1], 0.0])
         tcp_obj_x_z_margin = (
             np.linalg.norm(init_obj_x_z - init_tcp_x_z, ord=2) - x_z_success_margin
@@ -242,8 +313,8 @@ class CustomTwoBalls(SawyerXYZEnv):
     def compute_reward(
         self, action: npt.NDArray[Any], obs: npt.NDArray[np.float64]
     ) -> tuple[float, float, float, float, float, float]:
-        assert self._target_pos is not None and self.obj_init_pos is not None
-        if self.reward_function_version == "v2":
+        assert self._target_pos is not None and self.red_ball_init_pos is not None
+        if True:
             _TARGET_RADIUS: float = 0.05
             tcp = self.tcp_center
             obj = obs[4:7]
@@ -252,7 +323,7 @@ class CustomTwoBalls(SawyerXYZEnv):
 
             obj_to_target = float(np.linalg.norm(obj - target))
             tcp_to_obj = float(np.linalg.norm(obj - tcp))
-            in_place_margin = np.linalg.norm(self.obj_init_pos - target)
+            in_place_margin = np.linalg.norm(self.red_ball_init_pos - target)
 
             in_place = reward_utils.tolerance(
                 obj_to_target,
@@ -270,7 +341,7 @@ class CustomTwoBalls(SawyerXYZEnv):
             if (
                 tcp_to_obj < 0.02
                 and (tcp_opened > 0)
-                and (obj[2] - 0.01 > self.obj_init_pos[2])
+                and (obj[2] - 0.01 > self.red_ball_init_pos[2])
             ):
                 reward += 1.0 + 5.0 * in_place
             if obj_to_target < _TARGET_RADIUS:
@@ -359,3 +430,23 @@ class CustomTwoBalls(SawyerXYZEnv):
     @property
     def _target_site_config(self) -> list[tuple[str, npt.NDArray[Any]]]:
         return []
+
+    def _set_obj_xyz(self, pos: npt.NDArray[Any]) -> None:
+        """Sets the position of the object.
+
+        Args:
+            pos: The position to set as a numpy array of 3 elements (XYZ value).
+        """
+        qpos = self.data.qpos.flat.copy()
+        qvel = self.data.qvel.flat.copy()
+
+        if pos.shape == (6,):
+            # two objects: first at qpos[9:12], second at qpos[12:15]
+            qpos[9:12]   = pos[:3].copy()   # red ball
+            qpos[16:19]  = pos[3:6].copy()   # green ball
+            # zero both bodies' vel (3 lin + 3 ang each)
+            qvel[9:] = 0
+        else:
+            raise ValueError(f"_set_obj_xyz() expects pos.shape (6,), got {pos.shape}")
+
+        self.set_state(qpos, qvel)
