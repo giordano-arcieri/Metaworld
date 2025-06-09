@@ -107,17 +107,15 @@ class CustomTwoBalls(SawyerXYZEnv):
         self, obs: npt.NDArray[np.float64], action: npt.NDArray[np.float32]
     ) -> tuple[float, dict[str, Any]]:
         obj = obs[4:7]
-
         (
             reward,
             tcp_to_obj,
             tcp_open,
-            obj_to_target,
             grasp_reward,
-            in_place_reward,
+            obj_is_grasped,
         ) = self.compute_reward(action, obs)
 
-        success = float(obj_to_target <= 0.07)
+        success = float(obj_is_grasped)
         near_object = float(tcp_to_obj <= 0.03)
 
         assert self.red_ball_init_pos is not None and self.green_ball_init_pos is not None
@@ -130,11 +128,12 @@ class CustomTwoBalls(SawyerXYZEnv):
 
         info = {
             "success": success,
+            "object_is_grasped": obj_is_grasped,
+            "tcp_to_obj": tcp_to_obj,
+            "tcp_open": tcp_open,
             "near_object": near_object,
             "grasp_success": grasp_success,
             "grasp_reward": grasp_reward,
-            "in_place_reward": in_place_reward,
-            "obj_to_target": obj_to_target,
             "unscaled_reward": reward,
         }
 
@@ -308,7 +307,7 @@ class CustomTwoBalls(SawyerXYZEnv):
 
     def compute_reward(
         self, action: npt.NDArray[Any], obs: npt.NDArray[np.float64]
-    ) -> tuple[float, float, float, float, float, float]:
+    ) -> tuple[float, float, float, float, float]:
         assert self._target_pos is not None and self.red_ball_init_pos is not None
         if True:
             tcp = self.tcp_center
@@ -334,9 +333,8 @@ class CustomTwoBalls(SawyerXYZEnv):
                 reward,
                 tcp_to_obj,
                 tcp_opened,
-                -1,
                 object_grasped,
-                -1,
+                object_grasped,
             )
         else:
             objPos = obs[4:7]
