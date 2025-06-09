@@ -1,3 +1,6 @@
+# Added by GA
+wandb/
+
 # Plots and figures
 scripts/figures/
 scripts/movies*
