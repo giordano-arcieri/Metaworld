@@ -5,7 +5,7 @@ For this script to work, you need to have the PyGame window in focus.
 See/modify `char_to_action` to set the key-to-action mapping.
 """
 import sys
-
+import time
 import numpy as np
 import pygame  # type: ignore
 from pygame.locals import KEYDOWN, QUIT  # type: ignore
@@ -35,12 +35,11 @@ char_to_action = {
 }
 
 
-env = SawyerPickPlaceEnvV3()
+env = SawyerPickPlaceEnvV3(render_mode="human")
 env._partially_observable = False
 env._freeze_rand_vec = False
 env._set_task_called = True
 env.reset()
-env._freeze_rand_vec = True
 lock_action = False
 random_action = False
 obs = env.reset()
@@ -57,22 +56,27 @@ while True:
             if event.type == KEYDOWN:
                 char = event.dict["key"]
                 new_action = char_to_action.get(chr(char), None)
-                if new_action == "toggle":
+                if isinstance(new_action, str) and new_action == "toggle":
                     lock_action = not lock_action
-                elif new_action == "reset":
+                elif isinstance(new_action, str) and new_action == "reset":
                     done = True
-                elif new_action == "close":
+                elif isinstance(new_action, str) and new_action == "close":
                     action[3] = 1
-                elif new_action == "open":
+                elif isinstance(new_action, str) and new_action == "open":
                     action[3] = -1
                 elif new_action is not None and isinstance(new_action, np.ndarray):
                     action[:3] = new_action[:3]
                 else:
-                    action = np.zeros(3, dtype=np.float32)
+                    action = np.zeros(4, dtype=np.float32)
                 print(action)
     else:
         action = np.array(env.action_space.sample(), dtype=np.float32)
-    ob, reward, done, infos = env.step(action)
+    ob, reward, done, turnicate, infos = env.step(action)
+    time.sleep(0.2)  # Adjust the sleep time as needed for smoother rendering
+    print("OBSERVATION:", ob)
+    print("INFO:", infos)
+    print("DONE:", done, "  |  TRUNCATED:", turnicate)
+    print("REWARD:", reward)
     # time.sleep(1)
     if done:
         obs = env.reset()
