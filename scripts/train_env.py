@@ -15,7 +15,7 @@ from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 
 # === CONFIGURATION ===
-TOTAL_TIMESTEPS = 1_000_000
+TOTAL_TIMESTEPS = 500_000
 ENV_NAME = 'pick-place-v3'
 
 # --- Wrapper for Metaworld Environments ---
@@ -83,14 +83,13 @@ def main():
     # Add the root directory (metaworld_repo/) to sys.path
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-    LOG_DIR = "./ppo_model/two_balls"
+    LOG_DIR = "./ppo_models/pick_pace"
     MODEL_DIR = os.path.join(LOG_DIR, "models")
     LOGS_DIR = os.path.join(LOG_DIR, "logs")
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    for i in range(5):
-        i = i+10
+    for i in range(1):
         wandb.init(
             project="llm_rl",
             name=None,
@@ -98,7 +97,7 @@ def main():
             config={
                 "total_timesteps": TOTAL_TIMESTEPS,
                 "policy": "MlpPolicy",
-                "env": "TwoBalls",
+                "env": "PickPlace",
                 "algo": "PPO",
             },
             sync_tensorboard=False,
@@ -128,7 +127,7 @@ def main():
         ])
 
         model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks)
-        model.save(os.path.join(MODEL_DIR, "ppo_final_" + str(i)))
+        model.save(os.path.join(MODEL_DIR, "pick_place_" + str(i)))
 
         print("✅ Training complete.")
         wandb.finish()
