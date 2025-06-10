@@ -4,15 +4,15 @@ import wandb
 import numpy as np
 from collections import deque
 
-# info: { "success": float(pressed),
-#         "false_success": float(false_pressed), 
-#         "btn_press_depth": float(press_depth),
-#         "btn_false_press_depth": float(false_press_depth), 
-#         "unscaled_reward": reward,
-#         "reach_rew": reach_reward, 
-#         "reach_bon": bonus_reach, 
-#         "press_bon": press_bonus, 
-#         "penalty": penalty, }
+#  info = {
+#         "success": grasp_success,
+#         "false_success": False,
+#         "reach_reward": reach_reward,
+#         "grasp_reward": grasp_reward,
+#         "total_reward": reward,
+#         "tcp_to_obj": tcp_to_obj,
+#         "tcp_open": tcp_opened,
+#     }
 
 class WandbLoggingCallback(BaseCallback):
     def __init__(self, eval_env, eval_freq=10000, n_eval=5, log_freq=1000, verbose=0, best_model_save_path=None):
@@ -32,12 +32,12 @@ class WandbLoggingCallback(BaseCallback):
         self.rollout_rewards = []
         self.rollout_successes = []
         self.rollout_ep_lengths = []
-        self.press_depths = [] 
-        self.false_press_depths = []
         self.reach_rewards = []
-        self.reach_bonuses = [] 
-        self.press_bonuses = []
+        self.reach_bonuses = []
+        self.grasp_bonuses = []
         self.penalties = []
+
+        self.best_model_save_path = best_model_save_path
 
     def _on_training_start(self) -> None:
         self.eval_callback.init_callback(self.model)
@@ -47,19 +47,14 @@ class WandbLoggingCallback(BaseCallback):
         dones = self.locals.get("dones", [])
 
         for info, done in zip(infos, dones):
-            if "unscaled_reward" in info:
-                self.episode_rewards.append(info["unscaled_reward"])
+            if "total_reward" in info:
+                self.episode_rewards.append(info["total_reward"])
                 self.episode_successes.append(info.get("success", 0.0))
-            if "btn_press_depth" in info: 
-                self.press_depths.append(info.get("btn_press_depth", 0.0))
-                self.false_press_depths.append(info.get("btn_false_press_depth", 0.0))
-            if "reach_rew" in info: 
-                self.reach_rewards.append(info.get("reach_rew", 0.0))
-            if "reach_bon" in info: 
-                self.reach_bonuses.append(info.get("reach_bon", 0.0))
-            if "press_bon" in info: 
-                self.press_bonuses.append(info.get("press_bon", 0.0))
-            if "penalty" in info: 
+            if "reach_reward" in info:
+                self.reach_rewards.append(info.get("reach_reward", 0.0))
+            if "grasp_reward" in info:
+                self.reach_bonuses.append(info.get("grasp_reward", 0.0))
+            if "penalty" in info:
                 self.penalties.append(info.get("penalty", 0.0))
 
             if done:
@@ -70,12 +65,10 @@ class WandbLoggingCallback(BaseCallback):
 
                 wandb.log({
                     "episode/total_reward": ep_reward,
-                    "episode/reach_rew": np.sum(self.reach_rewards),
-                    "episode/press_bonus": np.sum(self.press_bonuses),
+                    "episode/reach_reward": np.sum(self.reach_rewards),
+                    "episode/reach_bonus": np.sum(self.reach_bonuses),
                     "episode/penalty": np.sum(self.penalties),
                     "episode/success_rate": ep_success,
-                    "episode/press_depth": np.mean(self.press_depths), 
-                    "episode/false_press_depth": np.mean(self.false_press_depths), 
                     "episode/length": ep_len,
                 }, step=self.num_timesteps)
 
@@ -86,10 +79,7 @@ class WandbLoggingCallback(BaseCallback):
 
                 self.episode_rewards.clear()
                 self.episode_successes.clear()
-                self.press_depths.clear()
-                self.false_press_depths.clear()
                 self.reach_rewards.clear()
-                self.press_bonuses.clear()
                 self.penalties.clear()
 
         # Log rollout metrics once per log_freq
@@ -97,7 +87,7 @@ class WandbLoggingCallback(BaseCallback):
             wandb.log({
                 "rollout/mean_reward": np.mean(self.rollout_rewards),
                 "rollout/success_rate": np.mean(self.rollout_successes),
-                "rollout/success_rate_moving_avg": np.mean(self.recent_successes), 
+                "rollout/success_rate_moving_avg": np.mean(self.recent_successes),
                 "rollout/mean_ep_len": np.mean(self.rollout_ep_lengths)
             }, step=self.num_timesteps)
 
@@ -114,7 +104,7 @@ class WandbLoggingCallback(BaseCallback):
                 "eval/success_rate": eval_success_rate,
             }, step=self.num_timesteps)
 
-            if self.eval_callback.last_mean_reward > self.eval_callback.best_mean_reward and best_model_save_path:
+            if self.eval_callback.last_mean_reward > self.eval_callback.best_mean_reward and self.best_model_save_path is not None:
                 self.eval_callback.best_mean_reward = self.eval_callback.last_mean_reward
                 self.model.save(self.best_model_save_path)
                 print(f"📦 Saved new best model at step {self.num_timesteps} with reward {self.eval_callback.last_mean_reward:.2f}")

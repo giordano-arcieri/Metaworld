@@ -109,20 +109,23 @@ class CustomTwoBalls(SawyerXYZEnv):
         obj = obs[4:7]
         (
             reward,
+            reach_reward,
             grasp_reward,
             grasp_success,
             tcp_to_obj,
-            tcp_open,
+            tcp_opened,
         ) = self.compute_reward(action, obs)
 
         assert self.red_ball_init_pos is not None and self.green_ball_init_pos is not None
 
         info = {
             "success": grasp_success,
+            "false_success": False,
+            "reach_reward": reach_reward,
             "grasp_reward": grasp_reward,
-            "unscaled_reward": reward,
+            "total_reward": reward,
             "tcp_to_obj": tcp_to_obj,
-            "tcp_open": tcp_open,
+            "tcp_open": tcp_opened,
         }
 
         return reward, info
@@ -315,19 +318,19 @@ class CustomTwoBalls(SawyerXYZEnv):
 
             grasp_reward = self._get_caging_reward(obj) * 5
 
-            reward = reach_reward + grasp_reward
+            reward = reach_reward #+ grasp_reward
 
             grasp_success = self._is_grasped(obj)
             if grasp_success:
-                reward = 50
+                reward = 100
 
             return (
                 reward,
+                reach_reward,
                 grasp_reward,
                 grasp_success,
                 tcp_to_obj,
                 tcp_opened,
-
             )
         else:
             objPos = obs[4:7]
