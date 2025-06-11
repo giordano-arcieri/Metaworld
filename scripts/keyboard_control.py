@@ -36,6 +36,7 @@ char_to_action = {
 
 
 env = SawyerPickPlaceEnvV3(render_mode="human")
+print("MAMMAMMOA")
 env._partially_observable = False
 env._freeze_rand_vec = False
 env._set_task_called = True

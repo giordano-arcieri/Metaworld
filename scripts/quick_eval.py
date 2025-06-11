@@ -5,7 +5,7 @@ import metaworld
 from stable_baselines3 import PPO
 
 # === Configuration ===
-MODEL_PATH = "ppo_pick_place_model.zip"
+MODEL_PATH = "ppo_models/pick_place/models/pick_place_1.zip"
 ENV_NAME = "pick-place-v3"
 NUM_EPISODES = 10
 
