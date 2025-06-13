@@ -26,9 +26,9 @@ from gymnasium.wrappers import NormalizeObservation, NormalizeReward
 # "n_steps": 2048 4096
 # """
 # === CONFIGURATION ===
-TEST_NUMBER = sys.argv[1:][0]
+TEST_NUMBER = int(sys.argv[1:][0])
 print(f"Running test number: {TEST_NUMBER}")
-assert TEST_NUMBER in ['1', '2', '3'], "Test number must be 1, 2, or 3."
+assert TEST_NUMBER in [1, 2, 3], "Test number must be 1, 2, or 3."
 TOTAL_TIMESTEPS = 70_000
 ENV_NAME = 'reach-v3'
 PPO_HYPERPARAMS = {
@@ -183,7 +183,7 @@ def main():
     os.makedirs(LOGS_DIR, exist_ok=True)
 
     # for i in range(1, 2):
-    model_name = f"Reach{TEST_NUMBER}"
+    model_name = f"HP_reach_{TEST_NUMBER}"
     wandb.init(
         project="metaworld",
         name=model_name,
@@ -221,7 +221,7 @@ def main():
     ])
 
     model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks)
-    model.save(os.path.join(MODEL_DIR, f"reach_{TEST_NUMBER}"))
+    model.save(os.path.join(MODEL_DIR, f"hp_reach_{TEST_NUMBER}"))
 
     print("✅ Training complete.")
     wandb.finish()
