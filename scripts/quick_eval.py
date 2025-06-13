@@ -1,11 +1,12 @@
 import os
+import sys
 import time  # Import the time module
 import gymnasium as gym
 import metaworld
 from stable_baselines3 import PPO
 
 # === Configuration ===
-MODEL_PATH = "ppo_models/pick_place/models/reach_1.zip"
+MODEL_PATH = f"ppo_models/pick_place/models/{sys.argv[1:][0]}.zip"
 ENV_NAME = "reach-v3"
 NUM_EPISODES = 10
 

@@ -26,7 +26,9 @@ from gymnasium.wrappers import NormalizeObservation, NormalizeReward
 # "n_steps": 2048 4096
 # """
 # === CONFIGURATION ===
-TEST_NUMBER = 1
+TEST_NUMBER = sys.argv[1:][0]
+print(f"Running test number: {TEST_NUMBER}")
+assert TEST_NUMBER in ['1', '2', '3'], "Test number must be 1, 2, or 3."
 TOTAL_TIMESTEPS = 70_000
 ENV_NAME = 'reach-v3'
 PPO_HYPERPARAMS = {

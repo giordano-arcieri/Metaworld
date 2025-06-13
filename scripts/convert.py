@@ -1,15 +1,14 @@
-from stable_baselines3 import PPO
 import torch
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Load model from .zip
-model = PPO.load("ppo_models/pick_place/models/pick_place_1")
+policy = torch.jit.load("policy_model.pt", map_location='cpu')
 
-# Get the policy network (this is a torch.nn.Module)
-policy = model.policy
+# Instead of policy.mlp_extractor.policy_net[0], grab it via _modules
+layer0 = policy.mlp_extractor.policy_net._modules['0']
+weights = layer0.weight.detach().cpu().numpy()
 
-# Save the policy as a PyTorch model
-torch.save(policy.state_dict(), "policy_weights.pth")
-
-# Optional: convert to TorchScript if you want to use Netron
-scripted_policy = torch.jit.script(policy)
-scripted_policy.save("policy_model.pt")
+# ...existing code...
+sns.heatmap(weights, cmap="coolwarm", center=0)
+plt.title("Layer 1 Weights")
+plt.show()
