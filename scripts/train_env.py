@@ -14,11 +14,59 @@ from stable_baselines3.common.env_util import DummyVecEnv
 from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import BaseCallback
+from gymnasium.wrappers import NormalizeObservation, NormalizeReward
 
+# """
+# This is what hyperparameters were tested for 70k timesteps on the pick-place-v3 environment.
 
+# DEV TESTING:
+# "learning_rate": 0.0001 0.0003 0.0005
+# "clip_range": 0.1 0.05
+# "ent_coef": 0.01 0.001
+# "n_steps": 2048 4096
+# """
 # === CONFIGURATION ===
-TOTAL_TIMESTEPS = 500_000
-ENV_NAME = 'pick-place-v3'
+TEST_NUMBER = 1
+TOTAL_TIMESTEPS = 70_000
+ENV_NAME = 'reach-v3'
+PPO_HYPERPARAMS = {
+    1: {
+        "n_steps": 500,
+        "learning_rate": 5e-4,
+        "batch_size": 32,
+        "n_epochs": 4000,
+        "clip_range": 0.2,
+        "ent_coef": 0.0,
+        "policy_kwargs": dict(
+                net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                activation_fn='tanh',
+            ),
+    },
+    2: {
+        "n_steps": 500,
+        "learning_rate": 5e-4,
+        "batch_size": 32,
+        "n_epochs": 4000,
+        "clip_range": 0.2,
+        "ent_coef": 0.01,
+        "policy_kwargs": dict(
+                net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                activation_fn='tanh',
+            ),
+    },
+    3: {
+        "n_steps": 500,
+        "learning_rate": 5e-4,
+        "batch_size": 32,
+        "n_epochs": 4000,
+        "clip_range": 0.1,
+        "ent_coef": 0.0,
+        "policy_kwargs": dict(
+                net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                activation_fn='tanh',
+            ),
+    },
+}
 
 class StateRewardPrintCallback(BaseCallback):
     """
@@ -78,21 +126,32 @@ def make_env_func():
         Creates and wraps the Metaworld environment correctly.
         """
         # Create the benchmark and get the environment class
-        ml1 = metaworld.ML1(ENV_NAME)
-        env_class = ml1.train_classes[ENV_NAME]
+        mt1 = metaworld.MT1(ENV_NAME)
+        env_class = mt1.train_classes[ENV_NAME]
 
         # Get all available training tasks
-        tasks = ml1.train_tasks
+        tasks = mt1.train_tasks
 
         # Instantiate the environment
         env = env_class()
+
+        # Set partially observable to False
+        env._partially_observable = False
 
         # Set a SINGLE task for the entire training run.
         # It's common practice to use the first task for consistency.
         env.set_task(tasks[0])
 
-        # The Monitor wrapper is still useful for tracking stats
+        # Set wrappers
         env = Monitor(env)
+        #     gym.wrappers.RecordEpisodeStatistics(
+        #         NormalizeReward(
+        #             NormalizeObservation(
+        #                 MetaworldWrapper(env, mt1)
+        #             )
+        #         )
+        #     )
+        # )
         return env
     return _init
 
@@ -121,49 +180,49 @@ def main():
     os.makedirs(MODEL_DIR, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    for i in range(1, 2):
-        wandb.init(
-            project="llm_rl",
-            name="NR_Pick_Place",
-            # name="PPO_Metaworld_300k",
-            config={
-                "total_timesteps": TOTAL_TIMESTEPS,
-                "policy": "MlpPolicy",
-                "env": "PickPlace",
-                "algo": "PPO",
-            },
-            sync_tensorboard=False,
-            monitor_gym=True,
-            save_code=True,
-        )
+    # for i in range(1, 2):
+    model_name = f"Reach{TEST_NUMBER}"
+    wandb.init(
+        project="metaworld",
+        name=model_name,
+        # name="PPO_Metaworld_300k",
+        config=PPO_HYPERPARAMS[TEST_NUMBER],
+        sync_tensorboard=False,
+        monitor_gym=True,
+        save_code=True,
+    )
 
-        env = DummyVecEnv([make_env_func()])
-        model = PPO("MlpPolicy", env, verbose=1)
-        # env = CustomDummyVecEnv([make_env()])
-        # model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=os.path.join(LOGS_DIR, "tensorboard"))
-        # model = CustomPPO("MlpPolicy", env, verbose=1, tensorboard_log=os.path.join(LOGS_DIR, "tensorboard"))
+    env = DummyVecEnv([make_env_func()])
+    model = PPO(
+        "MlpPolicy",
+        env,
+        verbose=1,
+        **(PPO_HYPERPARAMS[TEST_NUMBER]),
+    )
 
-        callbacks = CallbackList([
-            StateRewardPrintCallback(),
-            WandbCallback(
-                gradient_save_freq=100,
-                model_save_path=MODEL_DIR,
-                verbose=2,
-            ),
-            WandbLoggingCallback(
-                env,
-                best_model_save_path=MODEL_DIR,
-                eval_freq=5000,
-                n_eval=15,
-                log_freq=1000,
-            ),
-        ])
+    wandb.watch(model.policy, log="all", log_freq=1000)
 
-        model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks)
-        model.save(os.path.join(MODEL_DIR, "pick_place_" + str(i)))
+    callbacks = CallbackList([
+        StateRewardPrintCallback(),
+        WandbCallback(
+            gradient_save_freq=100,
+            model_save_path=MODEL_DIR,
+            verbose=2,
+        ),
+        WandbLoggingCallback(
+            env,
+            best_model_save_path=MODEL_DIR,
+            eval_freq=5000,
+            n_eval=15,
+            log_freq=1000,
+        ),
+    ])
 
-        print("✅ Training complete.")
-        wandb.finish()
+    model.learn(total_timesteps=TOTAL_TIMESTEPS, callback=callbacks)
+    model.save(os.path.join(MODEL_DIR, f"reach_{TEST_NUMBER}"))
+
+    print("✅ Training complete.")
+    wandb.finish()
 
 if __name__ == "__main__":
     main()

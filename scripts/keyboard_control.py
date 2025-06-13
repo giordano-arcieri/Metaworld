@@ -10,7 +10,7 @@ import numpy as np
 import pygame  # type: ignore
 from pygame.locals import KEYDOWN, QUIT  # type: ignore
 
-from metaworld.envs import SawyerPickPlaceEnvV3
+from metaworld.envs import SawyerReachEnvV3
 
 pygame.init()
 screen = pygame.display.set_mode((400, 300))
@@ -35,7 +35,7 @@ char_to_action = {
 }
 
 
-env = SawyerPickPlaceEnvV3(render_mode="human")
+env = SawyerReachEnvV3(render_mode="human")
 print("MAMMAMMOA")
 env._partially_observable = False
 env._freeze_rand_vec = False
@@ -78,6 +78,8 @@ while True:
     print("INFO:", infos)
     print("DONE:", done, "  |  TRUNCATED:", turnicate)
     print("REWARD:", reward)
+    print(env._get_pos_goal())
+    print(env.get_endeff_pos())
     # time.sleep(1)
     if done:
         obs = env.reset()

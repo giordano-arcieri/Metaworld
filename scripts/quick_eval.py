@@ -5,8 +5,8 @@ import metaworld
 from stable_baselines3 import PPO
 
 # === Configuration ===
-MODEL_PATH = "ppo_models/pick_place/models/pick_place_1.zip"
-ENV_NAME = "pick-place-v3"
+MODEL_PATH = "ppo_models/pick_place/models/reach_1.zip"
+ENV_NAME = "reach-v3"
 NUM_EPISODES = 10
 
 # === WRAPPER (Required for correct environment setup) ===
@@ -37,11 +37,19 @@ def make_metaworld_env(env_name, render_mode=None):
     """
     Creates and wraps the Metaworld environment for evaluation.
     """
-    ml1 = metaworld.ML1(env_name)
-    env_class = ml1.train_classes[env_name]
+    mt1 = metaworld.MT1(env_name)
+    env_class = mt1.train_classes[env_name]
 
+    # Get all available training tasks
+    tasks = mt1.train_tasks
+
+    # Instantiate the environment
     env = env_class(render_mode=render_mode)
-    env = MetaworldWrapper(env, ml1)
+
+    # Set partially observable to False
+    # env._partially_observable = False
+
+    env.set_task(tasks[0])
     return env
 
 # === MAIN EVALUATION SCRIPT ===
@@ -74,6 +82,15 @@ def main():
             obs, reward, terminated, truncated, info = env.step(action)
             total_reward += reward
             step += 1
+
+            # Printing at every step can be overwhelming.
+            # Consider printing only periodically, for example, every 1000 steps.
+            if step % 100 == 0:
+                print(f"\n--- Step: {step} ---")
+                print(f"  - Reward: {reward:.5f}")
+                # The state vector can be large, so we print its shape and a small slice.
+                print(f"  - State (Observation): {obs}")
+                print("--------------------------")
 
             # Pause for 50 milliseconds to make the rendering viewable
             time.sleep(0.05)
