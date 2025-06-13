@@ -4,6 +4,7 @@ import os
 import sys
 import metaworld
 import numpy as np
+from torch.nn import Tanh
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from stable_baselines3 import PPO
 from scripts.wandb_callback import WandbLoggingCallback
@@ -41,7 +42,7 @@ PPO_HYPERPARAMS = {
         "ent_coef": 0.0,
         "policy_kwargs": dict(
                 net_arch=dict(pi=[128, 128], vf=[128, 128]),
-                activation_fn='tanh',
+                activation_fn=Tanh,
             ),
     },
     2: {
@@ -53,7 +54,7 @@ PPO_HYPERPARAMS = {
         "ent_coef": 0.01,
         "policy_kwargs": dict(
                 net_arch=dict(pi=[128, 128], vf=[128, 128]),
-                activation_fn='tanh',
+                activation_fn=Tanh,
             ),
     },
     3: {
@@ -65,7 +66,7 @@ PPO_HYPERPARAMS = {
         "ent_coef": 0.0,
         "policy_kwargs": dict(
                 net_arch=dict(pi=[128, 128], vf=[128, 128]),
-                activation_fn='tanh',
+                activation_fn=Tanh,
             ),
     },
 }
@@ -199,6 +200,7 @@ def main():
         "MlpPolicy",
         env,
         verbose=1,
+        device="cpu",
         **(PPO_HYPERPARAMS[TEST_NUMBER]),
     )
 
